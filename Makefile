@@ -2,7 +2,7 @@ FC = gfortran
 FCFLAGS = -Jmod -Imod -O2
 FLFLAGS = -s
 PROG = bin/f95stats.cgi
-MOD = obj/stats_module.o obj/csv_module.o
+MOD = obj/stats_module.o
 OBJ = obj/cgistats.o obj/compute.o obj/report.o
 DIRS = obj mod bin
 
@@ -10,9 +10,6 @@ $(PROG): $(OBJ) $(MOD)
 	$(FC) $(FLFLAGS) -o $@ $^
 
 obj/stats_module.o: src/stats_module.f95
-	$(FC) -o $@ -c $(FCFLAGS) $<
-
-obj/csv_module.o: src/csv_module.f95
 	$(FC) -o $@ -c $(FCFLAGS) $<
 
 obj/compute.o: src/compute.f95 $(MOD)

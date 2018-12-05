@@ -1,18 +1,19 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="stylesheet" media="all"  href="includes/style.css">
-<title>Fortran Online Statistics Calculator</title>
+<link rel="stylesheet" media="all" href="/includes/gradienttable.css">
+<title>Fortran Statistics</title>
 </head>
 <body>
-<header><p>Fortran Online Statistics Calculator</p></header>
-<div><a href="/index.php">Home</a></div>
-<h1>online statistics calculator</h1>
-<a href="cgi-bin/f95stats.cgi?step1"><h2>Compute statistical summary of .csv file numeric column.</h2></a>
-<div><a href="/index.php">Home</a></div>
-<footer><p>Fortran Online Statistical Calculator</p></footer>
+<header><p>Fortran Statistics</p></header>
+<div><a href="/index.php">Home</a> | <a href="/f95stats.html">Back</a></div>
+<p></p>
+<form action="/cgi-bin/f95stats.cgi" method="post" enctype="multipart/form-data">
+   <div><label><input type="file" name="csvdata"></div><p></p><div><input type="submit" value="Upload"></label></div>
+</form>
+<p></p>
+<div><a href=/index.php>Home</a> | <a href=/f95stats.html>Back</a></div>
+<footer><p>Copyright (c) Josh Roybal 2017-2018</p></footer>
 </body>
 </html>
-

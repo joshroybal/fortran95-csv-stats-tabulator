@@ -1,14 +1,9 @@
 ! cgi-bin online statistical calculator program
 program cgistats
-   use csv_module
    use stats_module
    implicit none
    ! interface declaration
    interface
-      ! subroutine to read CGI query string
-      subroutine read_query_string(card)
-         character (len=*) :: card
-      end subroutine read_query_string
       ! function returns formatted floating point numeric value
       function real_str(r, n)
          character (len=25) :: real_str
@@ -44,200 +39,163 @@ program cgistats
    end interface
    ! variable declarations
    integer, parameter :: LIM=1000000
-   integer :: ioerr, eof, n, noflds, colno, i, j, idx
-   real :: tmp, m, pv, ps, sv, ss, mdn, mad, aad, lo, hi, skw, t1, t2
-   character (len=80) :: card, record
-   character (len=25) :: field   
-   integer, dimension(9) :: std_devs, mdn_devs, avg_devs
+   integer :: ioerr, eof, n, i, j
+   real :: tmpf, m, pv, ps, sv, ss, mdn, mad, aad, lo, hi, skw, t1, t2
+   character (len = 80) :: record
+   character (len = 25) :: field
    real, dimension(LIM) :: x, z
    real, dimension(10,41) :: std_right, std_left, std_both, mdn_right, &
       mdn_left, mdn_both,  mean_right, mean_left, mean_both
    ! processing
-   call read_query_string(card)
    write (*,1000) 'Content-Type: text/html; charset=utf-8'
-   print *,  '<!DOCTYPE html>'
-   print *,  '<html>'
-   print *,  '<head>'
-   print *,  '<meta name="viewport" content="width=device-width, &
+   write (*,*)  '<!DOCTYPE html>'
+   write (*,*)  '<html>'
+   write (*,*)  '<head>'
+   write (*,*)  '<meta name="viewport" content="width=device-width, &
    initial-scale=1.0">'
-   print *,  '<link rel="stylesheet" media="all" &
+   write (*,*)  '<link rel="stylesheet" media="all" &
       href="/includes/gradienttable.css">'
-   print *,  '<title>Fortran Statistics</title>'
-   print *,  '</head>'
-   print *,  '<body>'
-   print *,  '<header><p>Fortran Statistics</p></header>'
-   print *,  '<div><a href="/index.php">Home</a> | &
+   write (*,*)  '<title>Fortran Statistics</title>'
+   write (*,*)  '</head>'
+   write (*,*)  '<body>'
+   write (*,*)  '<header><p>Fortran Statistics</p></header>'
+   write (*,*)  '<div><a href="/index.php">Home</a> | &
    <a href="/f95stats.html">Back</a></div>'
-   if (card == 'step1') then ! step1 generates the initial form
-      print *, '<p></p>'
-      print*, '<form action="f95stats.cgi?step2" method="post" enctype="&
-      multipart/form-data">&
-      <div>enter column no. to process : &
-      <input type="text" name="colno" size="2" value=""></div>&
-      <p></p>&
-      <div><label><input type="file" name="csvdata"></div>&
-      <p></p>&
-      <div><input type="submit" value="Upload"></label></div></form>'
-      print *, '<p></p>'
-   else if (card == 'step2') then ! step2 is main processing step
-      ! begin I/O processing
-      call cpu_time(t1)
-      do
-         read (*,'(A)',iostat=eof) record
-         if (eof /= 0) exit
-         idx = index(record, 'colno')
-         if (idx /= 0) exit
-      end do
-
-      do
-         read (*,*,iostat=ioerr) colno
-         if (ioerr == 0) exit
-      end do
-
-      n = 0
-      do
-         read (*,'(A)',iostat=eof) record
-         if (eof /= 0) exit
-         field = get_field(record, colno)
-         read (field,*,iostat=ioerr) tmp
-         if (ioerr == 0) then
-            n = n + 1
-            x(n) = tmp
-         end if
-      end do
-      ! I/O processing tasks completed
-      call cpu_time(t2)
-      field = adjustl(real_str(t2-t1, 3))
-      print *,  '<p>input processing time = ', trim(field), ' seconds.</p>'
-      print *, '<p>working . . .</p>'
-      call cpu_time(t1)
-      ! begin core processing tasks
-      ! compute stats
-      call compute(x, n, m, pv, ps, sv, ss, lo, hi, mdn, mad, aad, skw)
-      ! compute z values and cumulative from central tendencies tables
-      ! standard deviations about the mean
-      call compute_z(x, n, m, ps, z)
-      call compute_tables(z, n, std_right, std_left, std_both)
-      ! median deviations about the median
-      call compute_z(x, n, mdn, mad, z)
-      call compute_tables(z, n, mdn_right, mdn_left, mdn_both)
-      ! mean deviations about the mean
-      call compute_z(x, n, m, aad, z)
-      call compute_tables(z, n, mean_right, mean_left, mean_both)
-      call cpu_time(t2)
-      ! output report
-      field = adjustl(real_str(t2-t1, 3))
-      print *, '<p>core processing time = ', trim(field), ' seconds</p>'
-      ! ascii graphics first
-      print *, '<pre>'
-      call report(x, n, m, ss)
-      print *, '</pre>'
-      print *, '<p>general statistical summary</p>'
-      print *, '<ul>'
-      print *, '<li>size = ', n, '</li>'
-      print *, '<li>mean = ', m, '</li>'
-      print *, '<li>population variance = ', pv, '</li>'
-      print *, '<li>population standard deviation = ', ps, '</li>'
-      print *, '<li>sample variance = ', sv, '</li>'
-      print *, '<li>sample standard deviation = ', ss, '</li>'
-      print *, '<li>mininum = ', lo, '</li>'
-      print *, '<li>maximum = ', hi, '</li>'
-      print *, '<li>median = ', mdn, '</li>'
-      print *, '<li>median deviation = ', mad, '</li>'
-      print *, '<li>mean deviation = ', aad, '</li>'
-      print *, '<li>skewness = ', skw, '</li>'
-      print *, '<li>median skewness = ', 3*(m-mdn)/ps, '</li>'
-      print *, '</ul>'
-      ! print standard deviation cumulative from mean tables
-      print *, '<p>standard deviation tables</p>'
-      print *, '<div>cumulative from mean - right tail</div>'
-      print *, '<table class="gradienttable">'
-      print 3000, 'z',  ((i-1)/100.0,i=1,10)
-      do j = 1, 41
-         print 4000, (j-1)/10.0, (std_right(i,j),i=1,10)
-      end do      
-      print *, '</table>'
-      print *, '<div>cumulative from mean - left tail</div>'
-      print *, '<table class="gradienttable">'
-      print 3000, 'z',  ((i-1)/100.0,i=1,10)
-      do j = 1, 41
-         print 4000, (j-1)/10.0, (std_left(i,j),i=1,10)
-      end do      
-      print *, '</table>'
-      print *, '<div>cumulative from mean - left and right tails</div>'
-      print *, '<table class="gradienttable">'
-      print 3000, 'z',  ((i-1)/100.0,i=1,10)
-      do j = 1, 41
-         print 4000, (j-1)/10.0, (std_both(i,j),i=1,10)
-      end do      
-      print *, '</table>'
-      ! print median deviation cumulative from median tables
-      print *, '<p>median deviation tables</p>'
-      print *, '<div>cumulative from median - right tail</div>'
-      print *, '<table class="gradienttable">'
-      print 3000, 'z',  ((i-1)/100.0,i=1,10)
-      do j = 1, 41
-         print 4000, (j-1)/10.0, (mdn_right(i,j),i=1,10)
-      end do
-      print *, '</table>'
-      print *, '<div>cumulative from median - left tail</div>'
-      print *, '<table class="gradienttable">'
-      print 3000, 'z',  ((i-1)/100.0,i=1,10)
-      do j = 1, 41
-         print 4000, (j-1)/10.0, (mdn_left(i,j),i=1,10)
-      end do
-      print *, '</table>'
-      print *, '<div>cumulative from median - left and right tails</div>'
-      print *, '<table class="gradienttable">'
-      print 3000, 'z',  ((i-1)/100.0,i=1,10)
-      do j = 1, 41
-         print 4000, (j-1)/10.0, (mdn_both(i,j),i=1,10)
-      end do
-      print *, '</table>'
-      ! print mean deviation cumulative from mean tables
-      print *, '<p>mean deviation tables</p>'
-      print *, '<div>cumulative from mean - right tail</div>'
-      print *, '<table class="gradienttable">'
-      print 3000, 'z',  ((i-1)/100.0,i=1,10)
-      do j = 1, 41
-         print 4000, (j-1)/10.0, (mean_right(i,j),i=1,10)
-      end do
-      print *, '</table>'
-      print *, '<div>cumulative from mean - left tail</div>'
-      print *, '<table class="gradienttable">'
-      print 3000, 'z',  ((i-1)/100.0,i=1,10)
-      do j = 1, 41
-         print 4000, (j-1)/10.0, (mean_left(i,j),i=1,10)
-      end do
-      print *, '</table>'
-      print *, '<div>cumulative from mean - left and right tails</div>'
-      print *, '<table class="gradienttable">'
-      print 3000, 'z',  ((i-1)/100.0,i=1,10)
-      do j = 1, 41
-         print 4000, (j-1)/10.0, (mean_both(i,j),i=1,10)
-      end do   
-      print *, '</table>'
-   end if
-   print *,  '<div><a href=/index.php>Home</a> | &
+   ! begin I/O processing
+   call cpu_time(t1)
+   n = 0
+   do
+      read (*,*,iostat=eof) record
+      if (eof /= 0) exit
+      read (record,*,iostat=ioerr) tmpf
+      if (ioerr == 0) then
+         n = n + 1
+         x(n) = tmpf
+      end if
+   end do
+   ! I/O processing tasks completed
+   call cpu_time(t2)
+   field = adjustl(real_str(t2-t1, 3))
+   write (*,*)  '<p>input processing time = ', trim(field), ' seconds.</p>'
+   write (*,*) '<p>working . . .</p>'
+   call cpu_time(t1)
+   ! begin core processing tasks
+   ! compute stats
+   call compute(x, n, m, pv, ps, sv, ss, lo, hi, mdn, mad, aad, skw)
+   ! compute z values and cumulative from central tendencies tables
+   ! standard deviations about the mean
+   call compute_z(x, n, m, ps, z)
+   call compute_tables(z, n, std_right, std_left, std_both)
+   ! median deviations about the median
+   call compute_z(x, n, mdn, mad, z)
+   call compute_tables(z, n, mdn_right, mdn_left, mdn_both)
+   ! mean deviations about the mean
+   call compute_z(x, n, m, aad, z)
+   call compute_tables(z, n, mean_right, mean_left, mean_both)
+   call cpu_time(t2)
+   ! output report
+   field = adjustl(real_str(t2-t1, 3))
+   write (*,*) '<p>core processing time = ', trim(field), ' seconds</p>'
+   ! ascii graphics first
+   write (*,*) '<pre>'
+   call report(x, n, m, ss)
+   write (*,*) '</pre>'
+   write (*,*) '<p>general statistical summary</p>'
+   write (*,*) '<ul>'
+   write (*,*) '<li>size = ', n, '</li>'
+   write (*,*) '<li>mean = ', m, '</li>'
+   write (*,*) '<li>population variance = ', pv, '</li>'
+   write (*,*) '<li>population standard deviation = ', ps, '</li>'
+   write (*,*) '<li>sample variance = ', sv, '</li>'
+   write (*,*) '<li>sample standard deviation = ', ss, '</li>'
+   write (*,*) '<li>mininum = ', lo, '</li>'
+   write (*,*) '<li>maximum = ', hi, '</li>'
+   write (*,*) '<li>median = ', mdn, '</li>'
+   write (*,*) '<li>median deviation = ', mad, '</li>'
+   write (*,*) '<li>mean deviation = ', aad, '</li>'
+   write (*,*) '<li>skewness = ', skw, '</li>'
+   write (*,*) '<li>median skewness = ', 3*(m-mdn)/ps, '</li>'
+   write (*,*) '</ul>'
+   ! print standard deviation cumulative from mean tables
+   write (*,*) '<p>standard deviation tables</p>'
+   write (*,*) '<div>cumulative from mean - right tail</div>'
+   write (*,*) '<table class="gradienttable">'
+   print 3000, 'z',  ((i-1)/100.0,i=1,10)
+   do j = 1, 41
+      print 4000, (j-1)/10.0, (std_right(i,j),i=1,10)
+   end do      
+   write (*,*) '</table>'
+   write (*,*) '<div>cumulative from mean - left tail</div>'
+   write (*,*) '<table class="gradienttable">'
+   print 3000, 'z',  ((i-1)/100.0,i=1,10)
+   do j = 1, 41
+      print 4000, (j-1)/10.0, (std_left(i,j),i=1,10)
+   end do      
+   write (*,*) '</table>'
+   write (*,*) '<div>cumulative from mean - left and right tails</div>'
+   write (*,*) '<table class="gradienttable">'
+   print 3000, 'z',  ((i-1)/100.0,i=1,10)
+   do j = 1, 41
+      print 4000, (j-1)/10.0, (std_both(i,j),i=1,10)
+   end do      
+   write (*,*) '</table>'
+   ! print median deviation cumulative from median tables
+   write (*,*) '<p>median deviation tables</p>'
+   write (*,*) '<div>cumulative from median - right tail</div>'
+   write (*,*) '<table class="gradienttable">'
+   print 3000, 'z',  ((i-1)/100.0,i=1,10)
+   do j = 1, 41
+      print 4000, (j-1)/10.0, (mdn_right(i,j),i=1,10)
+   end do
+   write (*,*) '</table>'
+   write (*,*) '<div>cumulative from median - left tail</div>'
+   write (*,*) '<table class="gradienttable">'
+   print 3000, 'z',  ((i-1)/100.0,i=1,10)
+   do j = 1, 41
+      print 4000, (j-1)/10.0, (mdn_left(i,j),i=1,10)
+   end do
+   write (*,*) '</table>'
+   write (*,*) '<div>cumulative from median - left and right tails</div>'
+   write (*,*) '<table class="gradienttable">'
+   print 3000, 'z',  ((i-1)/100.0,i=1,10)
+   do j = 1, 41
+      print 4000, (j-1)/10.0, (mdn_both(i,j),i=1,10)
+   end do
+   write (*,*) '</table>'
+   ! print mean deviation cumulative from mean tables
+   write (*,*) '<p>mean deviation tables</p>'
+   write (*,*) '<div>cumulative from mean - right tail</div>'
+   write (*,*) '<table class="gradienttable">'
+   print 3000, 'z',  ((i-1)/100.0,i=1,10)
+   do j = 1, 41
+      print 4000, (j-1)/10.0, (mean_right(i,j),i=1,10)
+   end do
+   write (*,*) '</table>'
+   write (*,*) '<div>cumulative from mean - left tail</div>'
+   write (*,*) '<table class="gradienttable">'
+   print 3000, 'z',  ((i-1)/100.0,i=1,10)
+   do j = 1, 41
+      print 4000, (j-1)/10.0, (mean_left(i,j),i=1,10)
+   end do
+   write (*,*) '</table>'
+   write (*,*) '<div>cumulative from mean - left and right tails</div>'
+   write (*,*) '<table class="gradienttable">'
+   print 3000, 'z',  ((i-1)/100.0,i=1,10)
+   do j = 1, 41
+      print 4000, (j-1)/10.0, (mean_both(i,j),i=1,10)
+   end do   
+   write (*,*) '</table>'
+   write (*,*)  '<div><a href=/index.php>Home</a> | &
    <a href=/f95stats.html>Back</a></div>'
-   print *,  '<footer><p>Copyright (c) Josh Roybal 2017-2018</p></footer>'
-   print *,  '</body>'
-   print *,  '</html>'
+   write (*,*)  '<footer><p>Copyright (c) Josh Roybal 2017-2018</p></footer>'
+   write (*,*)  '</body>'
+   write (*,*)  '</html>'
    ! format defintions
    1000 format (a,/)
    2000 format (a256)
    3000 format ('<tr><th>'a,'</th>',10('<th>+',f4.2,'</th>'),'</tr>')
    4000 format ('<tr><th>',f3.1,'</th>',10('<td>',f7.3,'</td>'),'</tr>')   
 end program cgistats
-
-! subroutine reads CGI query string
-subroutine read_query_string(card)
-   implicit none
-   ! dummy arguments
-   character (len=*) :: card
-   ! processing
-   call getenv('QUERY_STRING', card)
-end subroutine read_query_string
 
 ! function returns formatted floating point numeric value
 function real_str(r, n)
@@ -296,20 +254,17 @@ subroutine compute_tables(z, n, right_tail, left_tail, both_tails)
    right_count = 0
    left_count = 0
    do k = 1, n
-      if (z(k) >= 0) then
-         idx = 100 * z(k) + 2
-         if (idx >= 1 .and. idx <= 410) then
+      idx = 100*abs(z(k)) + 2
+      if (idx >= 1 .and. idx <= 410) then
+         if (z(k) >= 0) then
             do i = idx, 410
                right_count(i) = right_count(i) + 1
             end do
-         end if
-      else
-         idx = 100 * abs(z(k)) + 2
-         if (idx >= 1 .and. idx <= 410) then
+         else
             do i = idx, 410
                left_count(i) = left_count(i) + 1
             end do
-         end if         
+         end if
       end if
    end do
 
